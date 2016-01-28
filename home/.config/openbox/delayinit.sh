@@ -15,13 +15,19 @@
 
 #	echo "xpos=$xpos ypos=$ypos" >> ~/debugopenbox
 	nitrogen --restore
+	xcompmgr &
 	tint2 &
-	volti &
-#	conky -b -x $xpos -y $ypos &
-#	nm-applet &
-
-	if ! dropbox running ; then
-		dropbox stop
-	fi
-	dropbox start
+	pnmixer &
+	#	conky -b -x $xpos -y $ypos &
+	#	nm-applet &
+	dropbox_count=0
+	while ! dropbox running ; do
+	    dropbox stop
+	    sleep 1
+	    dropbox_count=$((${dropbox_count}+1))
+	    if [ ${dropbox_count} -ge 10 ] ; then
+		break;
+	    fi
+	done
+	dropbox start -i
 
