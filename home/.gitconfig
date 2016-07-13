@@ -1,0 +1,28 @@
+[color]
+    ui = auto
+[user]
+	name = Leonardo Piga
+	email = Leonardo.Piga@amd.com
+[push]
+	default = simple
+[core]
+	editor = emacs
+[alias]
+	st = status
+	co = checkout
+	br = branch
+	up = rebase
+	ci = commit
+[url "ssh://gerritgitmaster/"]
+    pushInsteadOf = ssh://gerritgit/
+[review "git.amd.com:8080"]
+    username = git.amd.com
+    uploadtopic = true
+[review "atlvgits01.amd.com:8888"]
+    username = git.amd.com
+    uploadtopic = true
+
+[difftool "ediff"]
+cmd = emacs -diff \"$LOCAL\" \"$REMOTE\"
+[diff]
+	tool = ediff

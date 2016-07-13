@@ -1,22 +1,21 @@
 (custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
+  ;; custom-set-variables was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
  '(auto-compression-mode t nil (jka-compr))
  '(case-fold-search t)
- '(column-number-mode t)
  '(current-language-environment "UTF-8")
  '(default-input-method "rfc1345")
  '(global-font-lock-mode t nil (font-lock))
  '(show-paren-mode t nil (paren))
- '(tool-bar-mode nil))
+ '(transient-mark-mode t))
 (custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(default ((t (:stipple nil :background "#141312" :foreground "#ffffff" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 121 :width normal :family "DejaVu Sans Mono" :foundry "unknown")))))
+  ;; custom-set-faces was added by Custom.
+  ;; If you edit it by hand, you could mess it up, so be careful.
+  ;; Your init file should contain only one such instance.
+  ;; If there is more than one, they won't work right.
+ '(default ((t (:stipple nil :background "#141312" :foreground "#ffffff" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 135 :width normal :family "adobe-courier")))))
 
 (setq inhibit-startup-message t)
 (setq initial-scratch-message nil)
@@ -29,8 +28,11 @@
   (normal-erase-is-backspace-mode 1)
   (tool-bar-mode 0)) ; Disable toolbar
  (t ; If it is in text mode
-  (global-set-key "\M-[1;5C"    'forward-word)      ; Ctrl+right   => forward word
-  (global-set-key "\M-[1;5D"    'backward-word))    ; Ctrl+left    => backward word
+  (global-set-key "\M-[1;5C"    'forward-word)         ; Ctrl+right   => forward word
+  (global-set-key "\M-[1;5D"    'backward-word)        ; Ctrl+left    => backward word
+  (global-set-key "\M-[1;5B"    'forward-paragraph)    ; Ctrl+down   => forward paragraph
+  (global-set-key "\M-[1;5A"    'backward-paragraph)   ; Ctrl+up     => backward paragraph
+)
 )
 
 
@@ -69,6 +71,7 @@
 (cond 
  (window-system 
   (setq x-select-enable-clipboard t)
+  (setq x-select-enable-clipboard-manager t)
   (setq interprogram-paste-function 'x-cut-buffer-or-selection-value))
 )
 
@@ -176,10 +179,10 @@
 ;====================================
 ; Enabling Thesaurus
 ;====================================
-;(require 'thesaurus)
-;(setq thesaurus-bhl-api-key "feb383ff6e1617ced9e71a464ca4b692")  ;; from registration
+;;(require 'thesaurus)
+;;(setq thesaurus-bhl-api-key "feb383ff6e1617ced9e71a464ca4b692")  ;; from registration
 ;; optional key binding
-;(define-key global-map (kbd "C-x t") 'thesaurus-choose-synonym-and-replace)
+;;(define-key global-map (kbd "C-x t") 'thesaurus-choose-synonym-and-replace)
 
 
 ;====================================
@@ -202,8 +205,57 @@
 ;;C-c @ C-M-h    Hide all top-level blocks (hs-hide-all).
 ;;C-c @ C-M-s    Show everything in the buffer (hs-show-all).
 ;;C-c @ C-l    Hide all blocks n levels below this block (hs-hide-level).
-;(require 'xcscope)
+(require 'xcscope)
 
-
+(setq auto-mode-alist (cons '("\\.cl$" . c-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.tex$" . latex-mode) auto-mode-alist))
+
+;(require 'iso-acc)
+;(require 'iso-insert) 
+;(iso-accents-customize "portuguese")
+(require 'ess-site)
+
+; Download package from: 
+;  https://raw.githubusercontent.com/nschum/macro-math.el/master/macro-math.el
+(require 'macro-math)
+(global-set-key "\C-x~" 'macro-math-eval-and-round-region)
+(global-set-key "\C-x=" 'macro-math-eval-region)
+
+
+(c-add-style "my-style"
+             '("stroustrup"
+	       (indent-tabs-mode . nil)        ; use spaces rather than tabs
+	       (c-basic-offset . 4)            ; indent by four spaces
+	       (c-offsets-alist . ((inline-open . 0)  ; custom indentation rules
+                                   (brace-list-open . 0)
+                                   (statement-case-open . +)))))
+
+(defun my-c++-mode-hook ()
+  (c-set-style "my-style")        ; use my-style defined above
+  (c-toggle-auto-hungry-state 0))
+
+(add-hook 'c++-mode-hook 'my-c++-mode-hook)
+
+
+;; Enable MATLAB
+(add-to-list 'load-path "~/util/matlab-mode")
+(load-library "matlab-load")
+
+; ==================================================
+; Tweaks for ediff
+; ==================================================
+(defun command-line-diff (switch)
+  (let ((file1 (pop command-line-args-left))
+        (file2 (pop command-line-args-left)))
+    (ediff file1 file2)))
+
+(add-to-list 'command-switch-alist '("diff" . command-line-diff))
+;; Usage: emacs -diff file1 file2
+
+;; saner ediff default
+(setq ediff-diff-options "-w")
+(setq ediff-split-window-function 'split-window-horizontally)
+(setq ediff-window-setup-function 'ediff-setup-windows-plain)
+(add-hook 'ediff-before-setup-hook 'new-frame)
+(add-hook 'ediff-quit-hook 'delete-frame)
