@@ -278,5 +278,6 @@
 (require 'whitespace)
 (setq whitespace-line-column 80) ;; limit line length
 (setq whitespace-style '(face lines-tail))
+(setq whitespace-style '(face tabs))
 
 (add-hook 'prog-mode-hook 'whitespace-mode)
