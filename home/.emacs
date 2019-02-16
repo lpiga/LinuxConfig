@@ -109,11 +109,11 @@
           (concat (expand-file-name (concat backup-file-dir "/")) "#"
                   (replace-regexp-in-string "/" "!" buffer-file-name)
                   "#") 
-	(concat
-	 (file-name-directory buffer-file-name)
-	 "#"
-	 (file-name-nondirectory buffer-file-name)
-	 "#"))
+        (concat
+         (file-name-directory buffer-file-name)
+         "#"
+         (file-name-nondirectory buffer-file-name)
+         "#"))
     (expand-file-name
      (concat "#%" (buffer-name) "#"))))
 
@@ -134,7 +134,7 @@
 (defun set-window-width (n)
   "Set the selected window's width."
   (cond ((<= ( - (- (frame-width) 10) n) 0) (prin1 "Frame width too narrow")) 
-	(t (enlarge-window-horizontally (- n (window-width))))))
+        (t (enlarge-window-horizontally (- n (window-width))))))
 
 ;; Set current window width to 80 columns
 (defun set-80-columns ()
@@ -209,6 +209,10 @@
 ;;C-c @ C-M-s    Show everything in the buffer (hs-show-all).
 ;;C-c @ C-l    Hide all blocks n levels below this block (hs-hide-level).
 (require 'xcscope)
+(cscope-setup)
+;; Disable cscope update database by default
+(setq cscope-option-do-not-update-database 1)
+
 
 (setq auto-mode-alist (cons '("\\.cl$" . c-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
@@ -228,12 +232,12 @@
 
 (c-add-style "my-style"
              '("stroustrup"
-	       (indent-tabs-mode . nil)        ; use spaces rather than tabs
-	       (c-basic-offset . 2)            ; indent by four spaces
-	       (c-offsets-alist . ((inline-open . 0)  ; custom indentation rules
+               (indent-tabs-mode . nil)        ; use spaces rather than tabs
+               (c-basic-offset . 2)            ; indent by four spaces
+               (c-offsets-alist . ((inline-open . 0)  ; custom indentation rules
                                    (brace-list-open . 0)
                                    (statement-case-open . +)
-				   (access-label . [1])))))
+                                   (access-label . [1])))))
 (defun my-c++-mode-hook ()
   (c-set-style "my-style")        ; use my-style defined above
   (c-set-offset 'innamespace [0])
@@ -280,3 +284,9 @@
 (setq whitespace-style '(face lines-tail tabs))
 
 (add-hook 'prog-mode-hook 'whitespace-mode)
+
+
+;; ==================================================
+;; Handle big files
+;; ==================================================
+(require 'vlf-setup)
