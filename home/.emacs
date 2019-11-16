@@ -1,3 +1,11 @@
+
+
+;; Added by Package.el.  This must come before configurations of
+;; installed packages.  Don't delete this line.  If you don't want it,
+;; just comment it out by adding a semicolon to the start of the line.
+;; You may delete these explanatory comments.
+(package-initialize)
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -5,17 +13,21 @@
  ;; If there is more than one, they won't work right.
  '(auto-compression-mode t nil (jka-compr))
  '(case-fold-search t)
+ '(column-number-mode t)
  '(current-language-environment "UTF-8")
  '(default-input-method "rfc1345")
  '(global-font-lock-mode t nil (font-lock))
+ '(package-selected-packages
+   (quote
+    (vlf whitespace-cleanup-mode json-mode csv-mode clang-format)))
  '(show-paren-mode t nil (paren))
- '(transient-mark-mode t))
+ '(tool-bar-mode nil))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(default ((t (:stipple nil :background "#141312" :foreground "#ffffff" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 135 :width normal :family "adobe-courier")))))
+ '(default ((t (:stipple nil :background "#141312" :foreground "#ffffff" :inverse-video nil :box nil :strike-through nil :overline nil :underline nil :slant normal :weight normal :height 98 :width normal :family "DejaVu Sans Mono" :foundry "PfEd")))))
 
 (setq inhibit-startup-message t)
 (setq initial-scratch-message nil)
@@ -75,47 +87,101 @@
   (setq interprogram-paste-function 'x-cut-buffer-or-selection-value))
  )
 
-;;=======================================
-;; Put backup files in one common place
-;;=======================================
-;; redefining the make-backup-file-name function in order to get
-;; backup files in ~/.backups/ rather than scattered around all over
-;; the filesystem. Note that you must have a directory ~/.backups/
-;; made.  This function looks first to see if that folder exists.  If
-;; it does not the standard backup copy is made.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; backup settings                                                        ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; https://www.emacswiki.org/emacs/BackupFiles
+(setq
+ backup-by-copying t     ; don't clobber symlinks
+ kept-new-versions 2     ; keep 10 latest versions
+ kept-old-versions 0     ; don't bother with old versions
+ delete-old-versions t   ; don't ask about deleting old versions
+ version-control t       ; number backups
+ vc-make-backup-files t) ; backup version controlled files
 
-(defvar backup-file-dir (concat "~/.emacs-" (user-login-name)))
-(make-directory backup-file-dir t)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; backup every save                                                      ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; http://stackoverflow.com/questions/151945/how-do-i-control-how-emacs-makes-backup-files
+;; https://www.emacswiki.org/emacs/backup-each-save.el
+(defvar bjm/backup-file-size-limit (* 5 1024 1024)
+  "Maximum size of a file (in bytes) that should be copied at each savepoint.
 
-(defun make-backup-file-name (file-name)
-  "Create the non-numeric backup file name for `file-name'."
-  (require 'dired)
-  (if (file-exists-p backup-file-dir)
-      (concat (expand-file-name (concat backup-file-dir "/"))
-              (replace-regexp-in-string "/" "!" file-name))
-    (concat file-name "~")))
+If a file is greater than this size, don't make a backup of it.
+Default is 5 MB")
 
-(setq-default
- backup-directory-alist (list (cons "." backup-file-dir)))
+(defvar bjm/backup-location (expand-file-name (concat "~/.emacs-" (user-login-name)))
+  "Base directory for backup files.")
 
-;; redefining the make-auto-save-file-name function in order to get
-;; autosave files sent to a single directory.  Note that this function
-;; looks first to determine if you have a ~/.autosaves/ directory.  If
-;; you do not it proceeds with the standard auto-save procedure.
-(defun make-auto-save-file-name ()
-  "Return file name to use for auto-saves of current buffer.."
-  (if buffer-file-name
-      (if (file-exists-p backup-file-dir) 
-          (concat (expand-file-name (concat backup-file-dir "/")) "#"
-                  (replace-regexp-in-string "/" "!" buffer-file-name)
-                  "#") 
-        (concat
-         (file-name-directory buffer-file-name)
-         "#"
-         (file-name-nondirectory buffer-file-name)
-         "#"))
-    (expand-file-name
-     (concat "#%" (buffer-name) "#"))))
+(defvar bjm/backup-trash-dir (expand-file-name (concat "~/.emacs-" (user-login-name) "/trash"))
+  "Directory for unwanted backups.")
+
+(defvar bjm/backup-exclude-regexp "\\[dasdasdasdadssdaase\\]"
+  "Don't back up files matching this regexp.
+
+Files whose full name matches this regexp are backed up to `bjm/backup-trash-dir'. Set to nil to disable this.")
+
+;; Default and per-save backups go here:
+;; N.B. backtick and comma allow evaluation of expression
+;; when forming list
+(setq backup-directory-alist
+      `(("" . ,(expand-file-name "per-save" bjm/backup-location))))
+
+;; add trash dir if needed
+(if bjm/backup-exclude-regexp
+    (add-to-list 'backup-directory-alist `(,bjm/backup-exclude-regexp . ,bjm/backup-trash-dir)))
+
+(defun bjm/backup-every-save ()
+  "Backup files every time they are saved.
+
+Files are backed up to `bjm/backup-location' in subdirectories \"per-session\" once per Emacs session, and \"per-save\" every time a file is saved.
+
+Files whose names match the REGEXP in `bjm/backup-exclude-regexp' are copied to `bjm/backup-trash-dir' instead of the normal backup directory.
+
+Files larger than `bjm/backup-file-size-limit' are not backed up."
+
+  ;; Make a special "per session" backup at the first save of each
+  ;; emacs session.
+  (when (not buffer-backed-up)
+    ;;
+    ;; Override the default parameters for per-session backups.
+    ;;
+    (let ((backup-directory-alist
+           `(("." . ,(expand-file-name "per-session" bjm/backup-location))))
+          (kept-new-versions 3))
+      ;;
+      ;; add trash dir if needed
+      ;;
+      (if bjm/backup-exclude-regexp
+          (add-to-list
+           'backup-directory-alist
+           `(,bjm/backup-exclude-regexp . ,bjm/backup-trash-dir)))
+      ;;
+      ;; is file too large?
+      ;;
+      (if (<= (buffer-size) bjm/backup-file-size-limit)
+          (progn
+            (message "Made per session backup of %s" (buffer-name))
+            (backup-buffer))
+        (message "WARNING: File %s too large to backup - increase value of bjm/backup-file-size-limit" (buffer-name)))))
+  ;;
+  ;; Make a "per save" backup on each save.  The first save results in
+  ;; both a per-session and a per-save backup, to keep the numbering
+  ;; of per-save backups consistent.
+  ;;
+  (let ((buffer-backed-up nil))
+    ;;
+    ;; is file too large?
+    ;;
+    (if (<= (buffer-size) bjm/backup-file-size-limit)
+        (progn
+          (message "Made per save backup of %s" (buffer-name))
+          (backup-buffer))
+      (message "WARNING: File %s too large to backup - increase value of bjm/backup-file-size-limit" (buffer-name)))))
+
+;; add to save hook
+(add-hook 'before-save-hook 'bjm/backup-every-save)
+
 
 ;;====================================
 ;; Customized functions
@@ -134,7 +200,7 @@
 (defun set-window-width (n)
   "Set the selected window's width."
   (cond ((<= ( - (- (frame-width) 10) n) 0) (prin1 "Frame width too narrow")) 
-        (t (enlarge-window-horizontally (- n (window-width))))))
+	(t (enlarge-window-horizontally (- n (window-width))))))
 
 ;; Set current window width to 80 columns
 (defun set-80-columns ()
@@ -177,6 +243,10 @@
 (defun back-window () (interactive) (other-window -1))
 (global-set-key "\C-co" 'back-window)
 
+
+
+
+
 (setq frame-title-format (list "%b-" user-login-name "@" system-name))
 
 ;;====================================
@@ -213,7 +283,6 @@
 ;; Disable cscope update database by default
 (setq cscope-option-do-not-update-database 1)
 
-
 (setq auto-mode-alist (cons '("\\.cl$" . c-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.h$" . c++-mode) auto-mode-alist))
 (setq auto-mode-alist (cons '("\\.tex$" . latex-mode) auto-mode-alist))
@@ -232,18 +301,23 @@
 
 (c-add-style "my-style"
              '("stroustrup"
-               (indent-tabs-mode . nil)        ; use spaces rather than tabs
-               (c-basic-offset . 2)            ; indent by four spaces
-               (c-offsets-alist . ((inline-open . 0)  ; custom indentation rules
+	       (indent-tabs-mode . nil)        ; use spaces rather than tabs
+	       (c-basic-offset . 2)            ; indent by four spaces
+	       (c-offsets-alist . ((inline-open . 0)  ; custom indentation rules
                                    (brace-list-open . 0)
                                    (statement-case-open . +)
-                                   (access-label . [1])))))
+				   (access-label . [1])))))
 (defun my-c++-mode-hook ()
   (c-set-style "my-style")        ; use my-style defined above
   (c-set-offset 'innamespace [0])
   (c-set-offset 'case-label '+)
   (c-toggle-auto-hungry-state 0))
 
+(defun my-c-mode-hook ()
+  (c-set-style "my-style")        ; use my-style defined above
+  (c-set-offset 'case-label '+))
+
+(add-hook 'c-mode-common-hook 'my-c-mode-hook)
 (add-hook 'c++-mode-hook 'my-c++-mode-hook)
 
 
@@ -275,6 +349,10 @@
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/") t)
 
+(require 'ansi-color)
+(defun display-ansi-colors ()
+  (interactive)
+    (ansi-color-apply-on-region (point-min) (point-max)))
 
 ;; ==================================================
 ;; Highight portion of lines that are longer than 80 columns
@@ -282,9 +360,9 @@
 (require 'whitespace)
 (setq whitespace-line-column 80) ;; limit line length
 (setq whitespace-style '(face lines-tail tabs))
+;;(setq whitespace-style '(face tabs))
 
 (add-hook 'prog-mode-hook 'whitespace-mode)
-
 
 ;; ==================================================
 ;; Handle big files
