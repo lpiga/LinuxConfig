@@ -1,0 +1,27 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Open in emacsclient",
+            "type": "process",
+            "command": "emacsclient",
+            "args": ["-n", "${file}"],
+        },
+        {
+            "label": "Clang format lines",
+            "type": "process",
+            "command": "/home/lpiga/utils/clang-format.py",
+            "args": ["${file}", "${lineNumber}", "${selectedText}"],
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+        }
+    ],
+}
